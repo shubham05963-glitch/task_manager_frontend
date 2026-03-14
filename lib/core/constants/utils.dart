@@ -9,11 +9,14 @@ Color strengthenColor(Color color, double factor) {
 }
 
 List<DateTime> generateWeekDates(int weekOffset) {
-  final today = DateTime.now();
-  DateTime startOfWeek = today.subtract(Duration(days: today.weekday - 1));
-  startOfWeek = startOfWeek.add(Duration(days: weekOffset * 7));
+  // Use local time for generating dates
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  
+  // Start the list from Today instead of Monday to keep current date "in front"
+  DateTime startDate = today.add(Duration(days: weekOffset * 7));
 
-  return List.generate(7, (index) => startOfWeek.add(Duration(days: index)));
+  return List.generate(7, (index) => startDate.add(Duration(days: index)));
 }
 
 String rgbToHex(Color color) {

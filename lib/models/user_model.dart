@@ -6,6 +6,7 @@ class UserModel {
   final String email;
   final String name;
   final String token;
+  final String profilePic;
   final DateTime createdAt;
   final DateTime updatedAt;
   UserModel({
@@ -13,6 +14,7 @@ class UserModel {
     required this.email,
     required this.name,
     required this.token,
+    required this.profilePic,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -22,6 +24,7 @@ class UserModel {
     String? email,
     String? name,
     String? token,
+    String? profilePic,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -30,6 +33,7 @@ class UserModel {
       email: email ?? this.email,
       name: name ?? this.name,
       token: token ?? this.token,
+      profilePic: profilePic ?? this.profilePic,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -41,6 +45,7 @@ class UserModel {
       'email': email,
       'name': name,
       'token': token,
+      'profilePic': profilePic,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -48,12 +53,13 @@ class UserModel {
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
-      id: map['id'] ?? '',
+      id: map['id'] ?? map['_id'] ?? '',
       email: map['email'] ?? '',
       name: map['name'] ?? '',
       token: map['token'] ?? '',
-      createdAt: DateTime.parse(map['createdAt']),
-      updatedAt: DateTime.parse(map['updatedAt']),
+      profilePic: map['profilePic'] ?? '',
+      createdAt: DateTime.parse(map['createdAt'] ?? map['created_at'] ?? DateTime.now().toIso8601String()),
+      updatedAt: DateTime.parse(map['updatedAt'] ?? map['updated_at'] ?? DateTime.now().toIso8601String()),
     );
   }
 
@@ -64,7 +70,7 @@ class UserModel {
 
   @override
   String toString() {
-    return 'UserModel(id: $id, email: $email, name: $name, token: $token, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'UserModel(id: $id, email: $email, name: $name, token: $token, profilePic: $profilePic, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -75,6 +81,7 @@ class UserModel {
         other.email == email &&
         other.name == name &&
         other.token == token &&
+        other.profilePic == profilePic &&
         other.createdAt == createdAt &&
         other.updatedAt == updatedAt;
   }
@@ -85,6 +92,7 @@ class UserModel {
         email.hashCode ^
         name.hashCode ^
         token.hashCode ^
+        profilePic.hashCode ^
         createdAt.hashCode ^
         updatedAt.hashCode;
   }

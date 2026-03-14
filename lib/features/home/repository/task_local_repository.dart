@@ -63,11 +63,42 @@ class TaskLocalRepository {
     final batch = db.batch();
 
     for (final task in tasks) {
-      batch.insert(
-        tableName,
-        task.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace, // Changed to replace to update existing records
-      );
+      // Logic to prevent "Completed" tasks from ever being reverted to "Incomplete" by the server
+      // 1. Only update if the local task is already synced (meaning no pending local changes)
+      // 2. OR if the incoming data is strictly newer (timestamp check)
+      // 3. AND NEVER let a completed local task (is_completed = 1) be overwritten by an incomplete remote task (excluded.is_completed = 0)
+      batch.execute('''
+        INSERT INTO $tableName (id, uid, title, description, created_at, updated_at, due_at, hex_color, is_synced, is_completed, completed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          title = excluded.title,
+          description = excluded.description,
+          updated_at = excluded.updated_at,
+          due_at = excluded.due_at,
+          hex_color = excluded.hex_color,
+          is_synced = excluded.is_synced,
+          is_completed = CASE 
+            WHEN is_completed = 1 THEN 1 
+            ELSE excluded.is_completed 
+          END,
+          completed_at = CASE 
+            WHEN is_completed = 1 THEN completed_at 
+            ELSE excluded.completed_at 
+          END
+        WHERE is_synced = 1 OR updated_at < excluded.updated_at
+      ''', [
+        task.id,
+        task.uid,
+        task.title,
+        task.description,
+        task.createdAt.toIso8601String(),
+        task.updatedAt.toIso8601String(),
+        task.dueAt.toIso8601String(),
+        task.toMap()['hex_color'],
+        1, 
+        task.isCompleted,
+        task.completedAt?.toIso8601String(),
+      ]);
     }
 
     await batch.commit(noResult: true);

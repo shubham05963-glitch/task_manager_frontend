@@ -52,13 +52,11 @@ class TasksCubit extends Cubit<TasksState> {
         isSynced: 0,
       );
 
-      ///  Save locally first
+      /// 1. Save locally first
       await taskLocalRepository.insertTask(taskModel);
-
-      /// Update UI instantly
       await _reloadTasks();
 
-      ///  Send to backend in background
+      /// 2. Send to backend
       final remoteTask = await taskRemoteRepository.createTask(
         id: taskId,
         uid: uid,
@@ -69,16 +67,15 @@ class TasksCubit extends Cubit<TasksState> {
         dueAt: dueAt,
       );
 
-      ///Update local task with remote ID and synced status
+      /// 3. If backend returned a different ID (e.g. Mongo ObjectID), replace the local one
       if (remoteTask.id != taskId) {
         await taskLocalRepository.deleteTask(taskId);
       }
+      
+      // Save the official version from the server
       await taskLocalRepository.insertTask(remoteTask.copyWith(isSynced: 1));
-
       await _reloadTasks();
     } catch (e) {
-      // In case of error (e.g. offline), we already have the local task with isSynced = 0
-      // So no need to do anything here except maybe logging
       debugPrint("Create Task Error: $e");
     }
   }
@@ -93,23 +90,24 @@ class TasksCubit extends Cubit<TasksState> {
     try {
       /// 1️⃣ Load local tasks immediately
       final localTasks = await taskLocalRepository.getTasks(uid);
-
       if (localTasks.isNotEmpty) {
         emit(GetTasksSuccess(localTasks));
       }
 
-      /// 2️⃣ Fetch backend tasks
-      final remoteTasks =
-          await taskRemoteRepository.getTasks(token: token, uid: uid);
+      /// 2️⃣ Sync unsynced tasks before fetching (Critical to avoid overwriting)
+      await syncTasks(token);
 
-      /// 3️⃣ Save backend tasks locally
+      /// 3️⃣ Fetch backend tasks
+      final remoteTasks = await taskRemoteRepository.getTasks(token: token, uid: uid);
+
+      /// 4️⃣ Save backend tasks locally (using smart merge)
       await taskLocalRepository.insertTasks(remoteTasks);
 
-      /// 4️⃣ Reload SQLite
+      /// 5️⃣ Final reload
       await _reloadTasks();
     } catch (e) {
+      debugPrint("Get All Tasks Error: $e");
       final localTasks = await taskLocalRepository.getTasks(uid);
-
       if (localTasks.isNotEmpty) {
         emit(GetTasksSuccess(localTasks));
       } else {
@@ -124,18 +122,11 @@ class TasksCubit extends Cubit<TasksState> {
     required String token,
   }) async {
     try {
-      /// delete locally
       await taskLocalRepository.deleteTask(taskId);
-
       await _reloadTasks();
-
-      /// delete backend
-      await taskRemoteRepository.deleteTask(
-        taskId: taskId,
-        token: token,
-      );
+      await taskRemoteRepository.deleteTask(taskId: taskId, token: token);
     } catch (e) {
-      emit(TasksError(e.toString()));
+      debugPrint("Delete Task Error: $e");
     }
   }
 
@@ -145,16 +136,23 @@ class TasksCubit extends Cubit<TasksState> {
     required String token,
   }) async {
     try {
-      await taskLocalRepository.updateTask(task);
+      final updatedTask = task.copyWith(
+        updatedAt: DateTime.now(),
+        isSynced: 0,
+      );
 
+      await taskLocalRepository.updateTask(updatedTask);
       await _reloadTasks();
 
-      await taskRemoteRepository.updateTask(
-        task: task,
+      final remoteTask = await taskRemoteRepository.updateTask(
+        task: updatedTask,
         token: token,
       );
+
+      await taskLocalRepository.insertTask(remoteTask.copyWith(isSynced: 1));
+      await _reloadTasks();
     } catch (e) {
-      emit(TasksError(e.toString()));
+      debugPrint("Update Task Error: $e");
     }
   }
 
@@ -164,26 +162,25 @@ class TasksCubit extends Cubit<TasksState> {
       final updatedTask = task.copyWith(
         isCompleted: 1,
         completedAt: DateTime.now(),
+        updatedAt: DateTime.now(), // Crucial for merge logic
         isSynced: 0,
       );
 
-      /// 1. Update locally
+      /// 1. Update locally first
       await taskLocalRepository.updateTask(updatedTask);
       await _reloadTasks();
 
       /// 2. Update backend
-      await taskRemoteRepository.updateTask(
+      final remoteTask = await taskRemoteRepository.updateTask(
         task: updatedTask,
         token: token,
       );
 
-      /// 3. Mark as synced locally
-      await taskLocalRepository.updateRowValue(task.id, 1);
+      /// 3. Update with server confirmed data
+      await taskLocalRepository.insertTask(remoteTask.copyWith(isSynced: 1));
       await _reloadTasks();
     } catch (e) {
       debugPrint("Complete Task Error: $e");
-      // Keep it as unsynced locally if backend fails
-      emit(TasksError(e.toString()));
     }
   }
 
@@ -192,9 +189,7 @@ class TasksCubit extends Cubit<TasksState> {
     if (currentUid == null) return;
 
     try {
-      final unsyncedTasks =
-          await taskLocalRepository.getUnsyncedTasks(currentUid!);
-
+      final unsyncedTasks = await taskLocalRepository.getUnsyncedTasks(currentUid!);
       if (unsyncedTasks.isEmpty) return;
 
       final synced = await taskRemoteRepository.syncTasks(
@@ -207,10 +202,8 @@ class TasksCubit extends Cubit<TasksState> {
           await taskLocalRepository.updateRowValue(task.id, 1);
         }
       }
-
-      await _reloadTasks();
     } catch (e) {
-      emit(TasksError(e.toString()));
+      debugPrint("Sync Error: $e");
     }
   }
 }

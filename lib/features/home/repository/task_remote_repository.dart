@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:frontend/core/constants/constants.dart';
-import 'package:frontend/core/constants/utils.dart';
 import 'package:frontend/features/home/repository/task_local_repository.dart';
 import 'package:frontend/models/task_model.dart';
 import 'package:http/http.dart' as http;
@@ -87,14 +86,7 @@ class TaskRemoteRepository {
           'Content-Type': 'application/json',
           'x-auth-token': token,
         },
-        body: jsonEncode({
-          'title': task.title,
-          'description': task.description,
-          'hexColor': rgbToHex(task.color),
-          'dueAt': task.dueAt.toIso8601String(),
-          'isCompleted': task.isCompleted,
-          'completedAt': task.completedAt?.toIso8601String(),
-        }),
+        body: jsonEncode(task.toBackendMap()),
       );
 
       if (res.statusCode != 200) {
@@ -142,7 +134,7 @@ class TaskRemoteRepository {
     required List<TaskModel> tasks,
   }) async {
     try {
-      final taskListInMap = tasks.map((task) => task.toMap()).toList();
+      final taskListInMap = tasks.map((task) => task.toBackendMap()).toList();
 
       final res = await http.post(
         Uri.parse("${Constants.backendUri}/tasks/sync"),

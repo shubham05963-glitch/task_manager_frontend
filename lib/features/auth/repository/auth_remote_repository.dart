@@ -7,6 +7,7 @@ import 'package:frontend/core/services/sp_service.dart';
 import 'package:frontend/features/auth/repository/auth_local_repository.dart';
 import 'package:frontend/models/user_model.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 class AuthRemoteRepository {
   final SpService spService = SpService();
@@ -132,6 +133,68 @@ class AuthRemoteRepository {
       /// fallback to local storage
       final user = await authLocalRepository.getUser();
       return user;
+    }
+  }
+
+  /// UPDATE PROFILE PICTURE
+  Future<UserModel> updateProfilePic({
+    required File image,
+    required String token,
+  }) async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse("${Constants.backendUri}/auth/profile-pic"),
+      );
+
+      request.headers.addAll({
+        'x-auth-token': token,
+      });
+
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'profilePic',
+          image.path,
+          contentType: MediaType('image', 'jpeg'),
+        ),
+      );
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode != 200) {
+        throw Exception(data["error"] ?? "Failed to update profile picture");
+      }
+
+      return UserModel.fromMap(data);
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+
+  /// DELETE PROFILE PICTURE
+  Future<UserModel> deleteProfilePic({
+    required String token,
+  }) async {
+    try {
+      final response = await http.delete(
+        Uri.parse("${Constants.backendUri}/auth/profile-pic"),
+        headers: {
+          'x-auth-token': token,
+        },
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode != 200) {
+        throw Exception(data["error"] ?? "Failed to delete profile picture");
+      }
+
+      return UserModel.fromMap(data);
+    } catch (e) {
+      throw Exception(e.toString());
     }
   }
 }

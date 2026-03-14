@@ -23,6 +23,7 @@ class _AddNewTaskPageState extends State<AddNewTaskPage> {
   final formKey = GlobalKey<FormState>();
 
   DateTime selectedDate = DateTime.now();
+  TimeOfDay selectedTime = TimeOfDay.now();
   Color selectedColor = const Color.fromRGBO(246, 222, 194, 1);
 
   bool isSubmitting = false;
@@ -38,6 +39,15 @@ class _AddNewTaskPageState extends State<AddNewTaskPage> {
 
     final authState = context.read<AuthCubit>().state;
 
+    // Combine date and time
+    final dueAt = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+      selectedTime.hour,
+      selectedTime.minute,
+    );
+
     if (authState is AuthLoggedIn) {
       await context.read<TasksCubit>().createNewTask(
             uid: authState.user.id,
@@ -45,7 +55,7 @@ class _AddNewTaskPageState extends State<AddNewTaskPage> {
             description: descriptionController.text.trim(),
             color: selectedColor,
             token: authState.user.token,
-            dueAt: selectedDate,
+            dueAt: dueAt,
           );
     }
 
@@ -63,13 +73,27 @@ class _AddNewTaskPageState extends State<AddNewTaskPage> {
     final pickedDate = await showDatePicker(
       context: context,
       initialDate: selectedDate,
-      firstDate: DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 0)),
       lastDate: DateTime.now().add(const Duration(days: 90)),
     );
 
     if (pickedDate != null) {
       setState(() {
         selectedDate = pickedDate;
+      });
+    }
+  }
+
+  /// TIME PICKER
+  Future<void> pickTime() async {
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: selectedTime,
+    );
+
+    if (pickedTime != null) {
+      setState(() {
+        selectedTime = pickedTime;
       });
     }
   }
@@ -93,13 +117,37 @@ class _AddNewTaskPageState extends State<AddNewTaskPage> {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 10),
-            child: TextButton.icon(
-              onPressed: pickDate,
-              icon: const Icon(Icons.calendar_today),
-              label: Text(
-                DateFormat("d MMM yyyy").format(selectedDate),
-                style: const TextStyle(fontSize: 14),
-              ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                GestureDetector(
+                  onTap: pickDate,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_today, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        DateFormat("d MMM yyyy").format(selectedDate),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                GestureDetector(
+                  onTap: pickTime,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.access_time, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        selectedTime.format(context),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           )
         ],

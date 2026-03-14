@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend/core/services/sp_service.dart';
 import 'package:frontend/features/auth/repository/auth_local_repository.dart';
@@ -103,6 +105,39 @@ class AuthCubit extends Cubit<AuthState> {
 
       // reset state
       emit(AuthInitial());
+    } catch (e) {
+      emit(AuthError(e.toString()));
+    }
+  }
+
+  // UPDATE PROFILE PIC
+  Future<void> updateProfilePic(File image) async {
+    try {
+      final currentState = state;
+      if (currentState is AuthLoggedIn) {
+        final updatedUser = await authRemoteRepository.updateProfilePic(
+          image: image,
+          token: currentState.user.token,
+        );
+        await authLocalRepository.insertUser(updatedUser);
+        emit(AuthLoggedIn(updatedUser));
+      }
+    } catch (e) {
+      emit(AuthError(e.toString()));
+    }
+  }
+
+  // DELETE PROFILE PIC
+  Future<void> deleteProfilePic() async {
+    try {
+      final currentState = state;
+      if (currentState is AuthLoggedIn) {
+        final updatedUser = await authRemoteRepository.deleteProfilePic(
+          token: currentState.user.token,
+        );
+        await authLocalRepository.insertUser(updatedUser);
+        emit(AuthLoggedIn(updatedUser));
+      }
     } catch (e) {
       emit(AuthError(e.toString()));
     }

@@ -23,7 +23,7 @@ class AuthLocalRepository {
 
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
         CREATE TABLE $tableName(
@@ -31,13 +31,14 @@ class AuthLocalRepository {
           email TEXT NOT NULL,
           token TEXT NOT NULL,
           name TEXT NOT NULL,
+          profilePic TEXT NOT NULL,
           createdAt TEXT NOT NULL,
           updatedAt TEXT NOT NULL
         )
         ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
+        if (oldVersion < 3) {
           await db.execute(
             'DROP TABLE IF EXISTS $tableName',
           );
@@ -48,6 +49,7 @@ class AuthLocalRepository {
             email TEXT NOT NULL,
             token TEXT NOT NULL,
             name TEXT NOT NULL,
+            profilePic TEXT NOT NULL,
             createdAt TEXT NOT NULL,
             updatedAt TEXT NOT NULL
           )

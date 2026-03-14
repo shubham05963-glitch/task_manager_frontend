@@ -75,33 +75,62 @@ class TaskModel {
     };
   }
 
+
+  Map<String, dynamic> toBackendMap() {
+    final bool status = isCompleted == 1;
+    final String? completedAtStr = completedAt?.toIso8601String();
+    
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'hexColor': rgbToHex(color),
+      'hex_color': rgbToHex(color),
+      'dueAt': dueAt.toIso8601String(),
+      'due_at': dueAt.toIso8601String(),
+      'isCompleted': status,
+      'is_completed': status,
+      'completedAt': completedAtStr,
+      'completed_at': completedAtStr,
+      'createdAt': createdAt.toIso8601String(),
+      'created_at': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+    };
+  }
+
   factory TaskModel.fromMap(Map<String, dynamic> map) {
+    DateTime parseDate(dynamic value) {
+      if (value == null) return DateTime.now();
+      String dateStr = value.toString();
+      return DateTime.parse(dateStr);
+    }
+
+    int parseBoolToInt(dynamic value) {
+      if (value is int) return value;
+      if (value is bool) return value ? 1 : 0;
+      if (value == null) return 0;
+      if (value.toString() == '1' || value.toString().toLowerCase() == 'true') return 1;
+      return 0;
+    }
+
     return TaskModel(
-      id: map['id'] ?? '',
-      uid: map['uid'] ?? '',
+      id: map['id'] ?? map['_id'] ?? '',
+      uid: map['uid'] ?? map['userId'] ?? '',
       title: map['title'] ?? '',
       description: map['description'] ?? '',
 
-      /// Fix snake_case backend fields
-      createdAt: DateTime.parse(
-        map['created_at'] ?? map['createdAt'],
-      ).toLocal(),
+      createdAt: parseDate(map['created_at'] ?? map['createdAt']),
+      updatedAt: parseDate(map['updated_at'] ?? map['updatedAt']),
+      dueAt: parseDate(map['due_at'] ?? map['dueAt']),
 
-      updatedAt: DateTime.parse(
-        map['updated_at'] ?? map['updatedAt'],
-      ).toLocal(),
+      color: hexToRgb(map['hex_color'] ?? map['hexColor'] ?? '#000000'),
 
-      dueAt: DateTime.parse(
-        map['due_at'] ?? map['dueAt'],
-      ).toLocal(),
+      isSynced: parseBoolToInt(map['is_synced'] ?? map['isSynced'] ?? 1),
+      isCompleted: parseBoolToInt(map['is_completed'] ?? map['isCompleted'] ?? 0),
 
-      color: hexToRgb(map['hex_color'] ?? map['hexColor']),
-
-      isSynced: map['is_synced'] ?? map['isSynced'] ?? 1,
-      isCompleted: map['is_completed'] ?? map['isCompleted'] ?? 0,
-
-      completedAt: map['completed_at'] != null
-          ? DateTime.parse(map['completed_at']).toLocal()
+      completedAt: (map['completed_at'] != null || map['completedAt'] != null)
+          ? parseDate(map['completed_at'] ?? map['completedAt'])
           : null,
     );
   }
