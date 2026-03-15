@@ -23,7 +23,10 @@ class _AddNewTaskPageState extends State<AddNewTaskPage> {
   final formKey = GlobalKey<FormState>();
 
   DateTime selectedDate = DateTime.now();
-  TimeOfDay selectedTime = TimeOfDay.now();
+  // Set default time to 5 minutes from now to allow testing notifications
+  TimeOfDay selectedTime = TimeOfDay.fromDateTime(
+    DateTime.now().add(const Duration(minutes: 5)),
+  );
   Color selectedColor = const Color.fromRGBO(246, 222, 194, 1);
 
   bool isSubmitting = false;
