@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:frontend/core/services/notification_service.dart';
 import 'package:frontend/core/theme/theme_cubit.dart';
 import 'package:frontend/features/auth/cubit/auth_cubit.dart';
 import 'package:frontend/features/home/cubit/tasks_cubit.dart';
@@ -7,7 +8,10 @@ import 'package:frontend/features/home/cubit/tasks_cubit.dart';
 
 import 'core/splash/splash_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService().init();
+  
   runApp(
     MultiBlocProvider(
       providers: [

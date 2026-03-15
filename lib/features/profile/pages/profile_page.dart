@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:frontend/features/auth/cubit/auth_cubit.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:frontend/core/constants/constants.dart';
+import 'package:frontend/models/user_model.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -61,7 +63,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     "2. Managing Tasks",
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  Text("Swipe left on a task to delete it. Tap a task to edit its details."),
+                  Text("Click on 3 dot to delete it. Tap a task to edit its details."),
                   SizedBox(height: 15),
                   Text(
                     "3. Completing Tasks",
@@ -120,14 +122,20 @@ class _ProfilePageState extends State<ProfilePage> {
         }
       },
       builder: (context, state) {
-        String name = "";
-        String email = "";
-        String? profilePic;
-
+        UserModel? user;
         if (state is AuthLoggedIn) {
-          name = state.user.name;
-          email = state.user.email;
-          profilePic = state.user.profilePic;
+          user = state.user;
+        } else if (state is AuthLoading) {
+          user = state.user;
+        }
+
+        String name = user?.name ?? "";
+        String email = user?.email ?? "";
+        String? profilePic = user?.profilePic;
+        bool isLoading = state is AuthLoading;
+
+        if (profilePic != null && profilePic.isNotEmpty && !profilePic.startsWith('http')) {
+          profilePic = '${Constants.backendUri}/$profilePic';
         }
 
         return Scaffold(
@@ -152,7 +160,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: Stack(
                     children: [
                       GestureDetector(
-                        onTap: pickImage,
+                        onTap: isLoading ? null : pickImage,
                         child: CircleAvatar(
                           radius: 60,
                           backgroundColor: Colors.grey.shade200,
@@ -160,11 +168,23 @@ class _ProfilePageState extends State<ProfilePage> {
                               ? NetworkImage(profilePic)
                               : null,
                           child: (profilePic == null || profilePic.isEmpty)
-                              ? const Icon(Icons.person, size: 60, color: Colors.grey)
-                              : null,
+                              ? (isLoading
+                                  ? const CircularProgressIndicator()
+                                  : const Icon(Icons.person, size: 60, color: Colors.grey))
+                              : (isLoading
+                                  ? Container(
+                                      decoration: const BoxDecoration(
+                                        color: Colors.black26,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Center(
+                                        child: CircularProgressIndicator(color: Colors.white),
+                                      ),
+                                    )
+                                  : null),
                         ),
                       ),
-                      if (profilePic != null && profilePic.isNotEmpty)
+                      if (profilePic != null && profilePic.isNotEmpty && !isLoading)
                         Positioned(
                           right: 0,
                           bottom: 0,

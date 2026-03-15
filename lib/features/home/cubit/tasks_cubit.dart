@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:frontend/core/services/notification_service.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:frontend/core/constants/utils.dart';
@@ -14,6 +15,7 @@ class TasksCubit extends Cubit<TasksState> {
 
   final taskRemoteRepository = TaskRemoteRepository();
   final taskLocalRepository = TaskLocalRepository();
+  final notificationService = NotificationService();
 
   String? currentUid;
 
@@ -54,6 +56,7 @@ class TasksCubit extends Cubit<TasksState> {
 
       /// 1. Save locally first
       await taskLocalRepository.insertTask(taskModel);
+      await notificationService.scheduleTaskNotifications(taskModel);
       await _reloadTasks();
 
       /// 2. Send to backend
@@ -69,11 +72,14 @@ class TasksCubit extends Cubit<TasksState> {
 
       /// 3. If backend returned a different ID (e.g. Mongo ObjectID), replace the local one
       if (remoteTask.id != taskId) {
+        await notificationService.cancelTaskNotifications(taskId);
         await taskLocalRepository.deleteTask(taskId);
       }
       
       // Save the official version from the server
-      await taskLocalRepository.insertTask(remoteTask.copyWith(isSynced: 1));
+      final finalTask = remoteTask.copyWith(isSynced: 1);
+      await taskLocalRepository.insertTask(finalTask);
+      await notificationService.scheduleTaskNotifications(finalTask);
       await _reloadTasks();
     } catch (e) {
       debugPrint("Create Task Error: $e");
@@ -92,6 +98,9 @@ class TasksCubit extends Cubit<TasksState> {
       final localTasks = await taskLocalRepository.getTasks(uid);
       if (localTasks.isNotEmpty) {
         emit(GetTasksSuccess(localTasks));
+        for (var task in localTasks) {
+          notificationService.scheduleTaskNotifications(task);
+        }
       }
 
       /// 2️⃣ Sync unsynced tasks before fetching (Critical to avoid overwriting)
@@ -104,7 +113,11 @@ class TasksCubit extends Cubit<TasksState> {
       await taskLocalRepository.insertTasks(remoteTasks);
 
       /// 5️⃣ Final reload
-      await _reloadTasks();
+      final updatedTasks = await taskLocalRepository.getTasks(uid);
+      for (var task in updatedTasks) {
+        notificationService.scheduleTaskNotifications(task);
+      }
+      emit(GetTasksSuccess(updatedTasks));
     } catch (e) {
       debugPrint("Get All Tasks Error: $e");
       final localTasks = await taskLocalRepository.getTasks(uid);
@@ -122,6 +135,7 @@ class TasksCubit extends Cubit<TasksState> {
     required String token,
   }) async {
     try {
+      await notificationService.cancelTaskNotifications(taskId);
       await taskLocalRepository.deleteTask(taskId);
       await _reloadTasks();
       await taskRemoteRepository.deleteTask(taskId: taskId, token: token);
@@ -142,6 +156,7 @@ class TasksCubit extends Cubit<TasksState> {
       );
 
       await taskLocalRepository.updateTask(updatedTask);
+      await notificationService.scheduleTaskNotifications(updatedTask);
       await _reloadTasks();
 
       final remoteTask = await taskRemoteRepository.updateTask(
@@ -149,7 +164,9 @@ class TasksCubit extends Cubit<TasksState> {
         token: token,
       );
 
-      await taskLocalRepository.insertTask(remoteTask.copyWith(isSynced: 1));
+      final finalTask = remoteTask.copyWith(isSynced: 1);
+      await taskLocalRepository.insertTask(finalTask);
+      await notificationService.scheduleTaskNotifications(finalTask);
       await _reloadTasks();
     } catch (e) {
       debugPrint("Update Task Error: $e");
@@ -168,6 +185,7 @@ class TasksCubit extends Cubit<TasksState> {
 
       /// 1. Update locally first
       await taskLocalRepository.updateTask(updatedTask);
+      await notificationService.cancelTaskNotifications(task.id);
       await _reloadTasks();
 
       /// 2. Update backend

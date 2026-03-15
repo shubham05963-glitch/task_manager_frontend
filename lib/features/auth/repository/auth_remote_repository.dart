@@ -37,16 +37,16 @@ class AuthRemoteRepository {
       final data = jsonDecode(response.body);
 
       if (response.statusCode != 201) {
-        throw Exception(data["error"] ?? "Signup failed");
+        throw data["error"] ?? "Signup failed";
       }
 
       return UserModel.fromMap(data);
     } on SocketException {
-      throw Exception("No internet connection or server unreachable.");
+      throw "No internet connection or server unreachable.";
     } on TimeoutException {
-      throw Exception("Server timed out. Please try again.");
+      throw "Server timed out. Please try again.";
     } catch (e) {
-      throw Exception(e.toString());
+      throw e.toString();
     }
   }
 
@@ -72,16 +72,16 @@ class AuthRemoteRepository {
       final data = jsonDecode(response.body);
 
       if (response.statusCode != 200) {
-        throw Exception(data["error"] ?? "Login failed");
+        throw data["error"] ?? "Login failed";
       }
 
       return UserModel.fromMap(data);
     } on SocketException {
-      throw Exception("No internet connection or server unreachable.");
+      throw "No internet connection or server unreachable.";
     } on TimeoutException {
-      throw Exception("Server timed out. Please try again.");
+      throw "Server timed out. Please try again.";
     } catch (e) {
-      throw Exception(e.toString());
+      throw e.toString();
     }
   }
 
@@ -121,7 +121,7 @@ class AuthRemoteRepository {
           .timeout(const Duration(seconds: 40));
 
       if (userRes.statusCode != 200) {
-        throw Exception(jsonDecode(userRes.body)["error"]);
+        throw jsonDecode(userRes.body)["error"];
       }
 
       final data = jsonDecode(userRes.body);
@@ -142,6 +142,8 @@ class AuthRemoteRepository {
     required String token,
   }) async {
     try {
+      // Note: If this still gives "Route not found", verify if the backend route is correct.
+      // Some backends use /auth/profile-picture or /auth/profile
       final request = http.MultipartRequest(
         'POST',
         Uri.parse("${Constants.backendUri}/auth/profile-pic"),
@@ -165,12 +167,12 @@ class AuthRemoteRepository {
       final data = jsonDecode(response.body);
 
       if (response.statusCode != 200) {
-        throw Exception(data["error"] ?? "Failed to update profile picture");
+        throw data["error"] ?? "Failed to update profile picture (Error ${response.statusCode})";
       }
 
       return UserModel.fromMap(data);
     } catch (e) {
-      throw Exception(e.toString());
+      throw e.toString();
     }
   }
 
@@ -189,12 +191,12 @@ class AuthRemoteRepository {
       final data = jsonDecode(response.body);
 
       if (response.statusCode != 200) {
-        throw Exception(data["error"] ?? "Failed to delete profile picture");
+        throw data["error"] ?? "Failed to delete profile picture (Error ${response.statusCode})";
       }
 
       return UserModel.fromMap(data);
     } catch (e) {
-      throw Exception(e.toString());
+      throw e.toString();
     }
   }
 }

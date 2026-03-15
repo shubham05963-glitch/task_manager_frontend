@@ -112,34 +112,58 @@ class AuthCubit extends Cubit<AuthState> {
 
   // UPDATE PROFILE PIC
   Future<void> updateProfilePic(File image) async {
+    final currentState = state;
+    UserModel? previousUser;
+    
+    if (currentState is AuthLoggedIn) {
+      previousUser = currentState.user;
+    } else if (currentState is AuthLoading) {
+      previousUser = currentState.user;
+    } else if (currentState is AuthError) {
+      previousUser = currentState.user;
+    }
+
+    if (previousUser == null) return;
+
     try {
-      final currentState = state;
-      if (currentState is AuthLoggedIn) {
-        final updatedUser = await authRemoteRepository.updateProfilePic(
-          image: image,
-          token: currentState.user.token,
-        );
-        await authLocalRepository.insertUser(updatedUser);
-        emit(AuthLoggedIn(updatedUser));
-      }
+      emit(AuthLoading(user: previousUser));
+      
+      final updatedUser = await authRemoteRepository.updateProfilePic(
+        image: image,
+        token: previousUser.token,
+      );
+      await authLocalRepository.insertUser(updatedUser);
+      emit(AuthLoggedIn(updatedUser));
     } catch (e) {
-      emit(AuthError(e.toString()));
+      emit(AuthError(e.toString(), user: previousUser));
     }
   }
 
   // DELETE PROFILE PIC
   Future<void> deleteProfilePic() async {
+    final currentState = state;
+    UserModel? previousUser;
+
+    if (currentState is AuthLoggedIn) {
+      previousUser = currentState.user;
+    } else if (currentState is AuthLoading) {
+      previousUser = currentState.user;
+    } else if (currentState is AuthError) {
+      previousUser = currentState.user;
+    }
+
+    if (previousUser == null) return;
+
     try {
-      final currentState = state;
-      if (currentState is AuthLoggedIn) {
-        final updatedUser = await authRemoteRepository.deleteProfilePic(
-          token: currentState.user.token,
-        );
-        await authLocalRepository.insertUser(updatedUser);
-        emit(AuthLoggedIn(updatedUser));
-      }
+      emit(AuthLoading(user: previousUser));
+
+      final updatedUser = await authRemoteRepository.deleteProfilePic(
+        token: previousUser.token,
+      );
+      await authLocalRepository.insertUser(updatedUser);
+      emit(AuthLoggedIn(updatedUser));
     } catch (e) {
-      emit(AuthError(e.toString()));
+      emit(AuthError(e.toString(), user: previousUser));
     }
   }
 }
