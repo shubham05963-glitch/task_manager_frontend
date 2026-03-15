@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:frontend/core/services/notification_service.dart';
 import 'package:frontend/core/services/sp_service.dart';
 import 'package:frontend/features/auth/repository/auth_local_repository.dart';
 import 'package:frontend/features/auth/repository/auth_remote_repository.dart';
@@ -14,6 +15,7 @@ class AuthCubit extends Cubit<AuthState> {
   final authRemoteRepository = AuthRemoteRepository();
   final authLocalRepository = AuthLocalRepository();
   final spService = SpService();
+  final notificationService = NotificationService();
 
   // AUTO LOGIN
   Future<void> getUserData() async {
@@ -97,6 +99,9 @@ class AuthCubit extends Cubit<AuthState> {
   // LOGOUT
   Future<void> logout() async {
     try {
+      // Clear all scheduled notifications on logout
+      await notificationService.cancelAllNotifications();
+
       // remove token
       await spService.setToken("");
 

@@ -11,6 +11,7 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:label="My Task"
@@ -38,8 +39,14 @@
 
         </activity>
 
-        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
-        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+        <!-- Fixed: Set exported to true and added directBootAware for better reliability when app is closed -->
+        <receiver android:exported="true" 
+                  android:directBootAware="true"
+                  android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        
+        <receiver android:exported="true" 
+                  android:directBootAware="true"
+                  android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>

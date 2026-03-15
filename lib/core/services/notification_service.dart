@@ -21,20 +21,13 @@ class NotificationService {
     if (_isInitialized) return;
 
     try {
-      debugPrint("--- Notification Service: Initialization Started ---");
+      debugPrint("--- Notification Service: Init Started ---");
       
       // 1. Initialize Timezones
       tz_data.initializeTimeZones();
-      try {
-        final String timeZoneName = await FlutterTimezone.getLocalTimezone();
-        debugPrint("Notification Service: Detected Timezone: $timeZoneName");
-        tz.setLocalLocation(tz.getLocation(timeZoneName));
-      } catch (e) {
-        debugPrint("Notification Service: Timezone detection failed, using UTC: $e");
-        tz.setLocalLocation(tz.getLocation('UTC'));
-      }
+      final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
       
-      // Using @mipmap/ic_launcher as it exists in mipmap folders
       const AndroidInitializationSettings initializationSettingsAndroid =
           AndroidInitializationSettings('@mipmap/ic_launcher');
 
@@ -42,57 +35,50 @@ class NotificationService {
         android: initializationSettingsAndroid,
       );
 
-      bool? initialized = await flutterLocalNotificationsPlugin.initialize(
+      await flutterLocalNotificationsPlugin.initialize(
         initializationSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
-          debugPrint("Notification Service: Notification tapped: ${response.payload}");
+          debugPrint("Notification Service: Tapped - ${response.payload}");
         },
       );
 
-      debugPrint("Notification Service: Plugin initialized status: $initialized");
       _isInitialized = true;
 
       // 2. Request Permissions
       await requestPermissions();
       
-      // 3. Create Notification Channel
+      // 3. Create Fresh High-Priority Channel
       if (Platform.isAndroid) {
         final androidPlugin = flutterLocalNotificationsPlugin
             .resolvePlatformSpecificImplementation<
                 AndroidFlutterLocalNotificationsPlugin>();
         
         await androidPlugin?.createNotificationChannel(const AndroidNotificationChannel(
-          'task_reminders',
+          'task_priority_channel_v2',
           'Task Reminders',
-          description: 'High priority notifications for task deadlines',
+          description: 'High priority alerts for your tasks',
           importance: Importance.max,
           enableVibration: true,
           playSound: true,
           showBadge: true,
         ));
-        
-        debugPrint("Notification Service: Android channel 'task_reminders' created");
       }
-      debugPrint("--- Notification Service: Initialization Completed ---");
+      debugPrint("--- Notification Service: Init Finished ---");
     } catch (e) {
-      debugPrint("Notification Service: CRITICAL INIT ERROR: $e");
+      debugPrint("Notification Service: Init Error: $e");
     }
   }
 
   Future<void> requestPermissions() async {
     if (Platform.isAndroid) {
-      debugPrint("Notification Service: Requesting permissions...");
-      
       // Notification Permission (Android 13+)
-      final notificationStatus = await Permission.notification.request();
-      debugPrint("Notification Service: Notification Permission Status: $notificationStatus");
+      await Permission.notification.request();
 
       // Exact Alarm Permission (Android 12+)
-      // Note: USE_EXACT_ALARM is in manifest, but checking status is good practice
-      final alarmStatus = await Permission.scheduleExactAlarm.request();
-      debugPrint("Notification Service: Exact Alarm Permission Status: $alarmStatus");
+      if (await Permission.scheduleExactAlarm.isDenied) {
+        await Permission.scheduleExactAlarm.request();
+      }
 
-      // Specific plugin-based request for Android 12+
       final androidPlugin = flutterLocalNotificationsPlugin
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
@@ -102,7 +88,6 @@ class NotificationService {
   }
 
   int _getNotificationId(String taskId, int offset) {
-    // Generate a unique 31-bit positive integer
     return (taskId.hashCode.abs() + offset) & 0x7FFFFFFF;
   }
 
@@ -117,44 +102,18 @@ class NotificationService {
       final now = tz.TZDateTime.now(tz.local);
       final dueAt = tz.TZDateTime.from(task.dueAt, tz.local);
       
-      debugPrint("Notification Service: Scheduling for '${task.title}' at $dueAt (Now is $now)");
-
-      // 1. 12 Hours Before
-      final twelveHoursBefore = dueAt.subtract(const Duration(hours: 12));
-      if (twelveHoursBefore.isAfter(now)) {
+      // Schedule only if the due time is at least 5 seconds in the future
+      if (dueAt.isAfter(now.add(const Duration(seconds: 5)))) {
         await _scheduleNotification(
-          id: _getNotificationId(task.id, 1),
-          title: 'Upcoming Task: 12h left',
-          body: 'Reminder: "${task.title}" is due in 12 hours.',
-          scheduledDate: twelveHoursBefore,
-        );
-      }
-
-      // 2. Due Time (The most important one)
-      if (dueAt.isAfter(now)) {
-        await _scheduleNotification(
-          id: _getNotificationId(task.id, 2),
+          id: _getNotificationId(task.id, 100),
           title: 'Task Due Now!',
           body: 'Your task "${task.title}" is due now.',
           scheduledDate: dueAt,
         );
-        debugPrint("Notification Service: Scheduled 'Due Time' notification for ID ${_getNotificationId(task.id, 2)}");
-      } else {
-        debugPrint("Notification Service: SKIPPED 'Due Time' because it's in the past: $dueAt");
-      }
-
-      // 3. Overdue (1 Hour After)
-      final oneHourAfter = dueAt.add(const Duration(hours: 1));
-      if (oneHourAfter.isAfter(now)) {
-        await _scheduleNotification(
-          id: _getNotificationId(task.id, 3),
-          title: 'Task Overdue',
-          body: 'The task "${task.title}" was due 1 hour ago.',
-          scheduledDate: oneHourAfter,
-        );
+        debugPrint("Notification Service: Scheduled '${task.title}' for $dueAt");
       }
     } catch (e) {
-      debugPrint("Notification Service: Scheduling Error for ${task.id}: $e");
+      debugPrint("Notification Service: Scheduling Error: $e");
     }
   }
 
@@ -172,15 +131,14 @@ class NotificationService {
         scheduledDate,
         const NotificationDetails(
           android: AndroidNotificationDetails(
-            'task_reminders',
+            'task_priority_channel_v2',
             'Task Reminders',
-            channelDescription: 'Notifications for task reminders and deadlines',
             importance: Importance.max,
             priority: Priority.high,
             showWhen: true,
-            fullScreenIntent: true,
+            enableVibration: true,
+            playSound: true,
             category: AndroidNotificationCategory.reminder,
-            visibility: NotificationVisibility.public,
           ),
         ),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -188,34 +146,32 @@ class NotificationService {
             UILocalNotificationDateInterpretation.absoluteTime,
       );
     } catch (e) {
-      debugPrint("Notification Service: zonedSchedule Failure (ID $id): $e");
+      debugPrint("Notification Service: zonedSchedule Failure: $e");
     }
   }
 
   Future<void> cancelTaskNotifications(String taskId) async {
     try {
-      await flutterLocalNotificationsPlugin.cancel(_getNotificationId(taskId, 1));
-      await flutterLocalNotificationsPlugin.cancel(_getNotificationId(taskId, 2));
-      await flutterLocalNotificationsPlugin.cancel(_getNotificationId(taskId, 3));
+      await flutterLocalNotificationsPlugin.cancel(_getNotificationId(taskId, 100));
     } catch (e) {
-      debugPrint("Notification Service: Cancel Error for $taskId: $e");
+      debugPrint("Notification Service: Cancel Error: $e");
     }
   }
 
+  Future<void> cancelAllNotifications() async {
+    await flutterLocalNotificationsPlugin.cancelAll();
+  }
+
+  // Use this for a quick test
   Future<void> showInstantNotification(String title, String body) async {
     if (!_isInitialized) await init();
-    
-    debugPrint("Notification Service: Showing instant notification: $title");
-    
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'task_reminders',
+      'task_priority_channel_v2',
       'Task Reminders',
       importance: Importance.max,
       priority: Priority.high,
-      showWhen: true,
     );
     const NotificationDetails details = NotificationDetails(android: androidDetails);
-    
     await flutterLocalNotificationsPlugin.show(
       DateTime.now().millisecond,
       title,

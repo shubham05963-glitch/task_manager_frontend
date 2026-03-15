@@ -30,7 +30,11 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.debug
+            // Updated to fix R8/Proguard issues
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.debug
         }
     }
 }
