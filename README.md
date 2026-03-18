@@ -61,4 +61,4 @@ A modern, offline-first Task Management application built with Flutter.
     ```
 
 ---
-*Developed with ❤️ using Flutter*
+*Developed with ❤️ Anibesh & shubham*
