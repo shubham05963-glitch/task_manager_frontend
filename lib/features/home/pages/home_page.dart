@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:frontend/core/services/notification_service.dart';
 import 'package:frontend/core/theme/theme_cubit.dart';
 import 'package:frontend/features/auth/cubit/auth_cubit.dart';
 import 'package:frontend/features/auth/pages/login_page.dart';
@@ -135,6 +136,16 @@ class _HomeContentState extends State<HomeContent> {
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
         actions: [
+          IconButton(
+            tooltip: "Test Notification",
+            icon: const Icon(Icons.notifications_active),
+            onPressed: () async {
+              await NotificationService().showInstantNotification(
+                "Test Notification",
+                "If you see this in system tray, notifications are working.",
+              );
+            },
+          ),
           BlocBuilder<ThemeCubit, ThemeMode>(
             builder: (context, themeMode) {
               final isDark = themeMode == ThemeMode.dark;

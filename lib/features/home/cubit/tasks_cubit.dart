@@ -19,16 +19,12 @@ class TasksCubit extends Cubit<TasksState> {
 
   String? currentUid;
 
-  /// Reload tasks from SQLite
   Future<void> _reloadTasks() async {
     if (currentUid == null) return;
-
     final tasks = await taskLocalRepository.getTasks(currentUid!);
-
     emit(GetTasksSuccess(tasks));
   }
 
-  /// CREATE NEW TASK (OFFLINE FIRST)
   Future<void> createNewTask({
     required String title,
     required String description,
@@ -41,7 +37,6 @@ class TasksCubit extends Cubit<TasksState> {
       currentUid = uid;
 
       final taskId = const Uuid().v4();
-
       final taskModel = TaskModel(
         id: taskId,
         uid: uid,
@@ -54,12 +49,10 @@ class TasksCubit extends Cubit<TasksState> {
         isSynced: 0,
       );
 
-      /// 1. Save locally first
       await taskLocalRepository.insertTask(taskModel);
       await notificationService.scheduleTaskNotifications(taskModel);
       await _reloadTasks();
 
-      /// 2. Send to backend
       final remoteTask = await taskRemoteRepository.createTask(
         id: taskId,
         uid: uid,
@@ -70,13 +63,11 @@ class TasksCubit extends Cubit<TasksState> {
         dueAt: dueAt,
       );
 
-      /// 3. If backend returned a different ID (e.g. Mongo ObjectID), replace the local one
       if (remoteTask.id != taskId) {
         await notificationService.cancelTaskNotifications(taskId);
         await taskLocalRepository.deleteTask(taskId);
       }
-      
-      // Save the official version from the server
+
       final finalTask = remoteTask.copyWith(isSynced: 1);
       await taskLocalRepository.insertTask(finalTask);
       await notificationService.scheduleTaskNotifications(finalTask);
@@ -86,7 +77,6 @@ class TasksCubit extends Cubit<TasksState> {
     }
   }
 
-  /// GET ALL TASKS
   Future<void> getAllTasks({
     required String token,
     required String uid,
@@ -94,29 +84,33 @@ class TasksCubit extends Cubit<TasksState> {
     currentUid = uid;
 
     try {
-      /// 1️⃣ Load local tasks immediately
+      // 1) show local immediately
       final localTasks = await taskLocalRepository.getTasks(uid);
       if (localTasks.isNotEmpty) {
         emit(GetTasksSuccess(localTasks));
-        for (var task in localTasks) {
-          notificationService.scheduleTaskNotifications(task);
-        }
       }
 
-      /// 2️⃣ Sync unsynced tasks before fetching (Critical to avoid overwriting)
+      // 2) sync unsynced local edits
       await syncTasks(token);
 
-      /// 3️⃣ Fetch backend tasks
-      final remoteTasks = await taskRemoteRepository.getTasks(token: token, uid: uid);
+      // 3) fetch latest remote
+      final remoteTasks = await taskRemoteRepository.getTasks(
+        token: token,
+        uid: uid,
+      );
 
-      /// 4️⃣ Save backend tasks locally (using smart merge)
+      // 4) merge remote into local store
       await taskLocalRepository.insertTasks(remoteTasks);
 
-      /// 5️⃣ Final reload
+      // 5) final read and schedule notifications.
+      // Do not cancel all here; global cancel can drop reminders that are
+      // about to fire while app is open. scheduleTaskNotifications already
+      // cancels/replaces reminders per task id safely.
       final updatedTasks = await taskLocalRepository.getTasks(uid);
-      for (var task in updatedTasks) {
-        notificationService.scheduleTaskNotifications(task);
+      for (final task in updatedTasks) {
+        await notificationService.scheduleTaskNotifications(task);
       }
+
       emit(GetTasksSuccess(updatedTasks));
     } catch (e) {
       debugPrint("Get All Tasks Error: $e");
@@ -129,7 +123,6 @@ class TasksCubit extends Cubit<TasksState> {
     }
   }
 
-  /// DELETE TASK
   Future<void> deleteTask({
     required String taskId,
     required String token,
@@ -144,7 +137,6 @@ class TasksCubit extends Cubit<TasksState> {
     }
   }
 
-  /// UPDATE TASK
   Future<void> updateTask({
     required TaskModel task,
     required String token,
@@ -173,28 +165,24 @@ class TasksCubit extends Cubit<TasksState> {
     }
   }
 
-  /// COMPLETE TASK
   Future<void> completeTask(TaskModel task, String token) async {
     try {
       final updatedTask = task.copyWith(
         isCompleted: 1,
         completedAt: DateTime.now(),
-        updatedAt: DateTime.now(), // Crucial for merge logic
+        updatedAt: DateTime.now(),
         isSynced: 0,
       );
 
-      /// 1. Update locally first
       await taskLocalRepository.updateTask(updatedTask);
       await notificationService.cancelTaskNotifications(task.id);
       await _reloadTasks();
 
-      /// 2. Update backend
       final remoteTask = await taskRemoteRepository.updateTask(
         task: updatedTask,
         token: token,
       );
 
-      /// 3. Update with server confirmed data
       await taskLocalRepository.insertTask(remoteTask.copyWith(isSynced: 1));
       await _reloadTasks();
     } catch (e) {
@@ -202,12 +190,13 @@ class TasksCubit extends Cubit<TasksState> {
     }
   }
 
-  /// SYNC UNSYNCED TASKS
   Future<void> syncTasks(String token) async {
     if (currentUid == null) return;
 
     try {
-      final unsyncedTasks = await taskLocalRepository.getUnsyncedTasks(currentUid!);
+      final unsyncedTasks = await taskLocalRepository.getUnsyncedTasks(
+        currentUid!,
+      );
       if (unsyncedTasks.isEmpty) return;
 
       final synced = await taskRemoteRepository.syncTasks(

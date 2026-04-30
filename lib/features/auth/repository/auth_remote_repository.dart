@@ -13,6 +13,16 @@ class AuthRemoteRepository {
   final SpService spService = SpService();
   final AuthLocalRepository authLocalRepository = AuthLocalRepository();
 
+  String _responseError(http.Response res, String fallback) {
+    try {
+      final body = jsonDecode(res.body);
+      if (body is Map<String, dynamic> && body["error"] != null) {
+        return body["error"].toString();
+      }
+    } catch (_) {}
+    return fallback;
+  }
+
   /// SIGN UP
   Future<UserModel> signUp({
     required String name,
@@ -37,7 +47,7 @@ class AuthRemoteRepository {
       final data = jsonDecode(response.body);
 
       if (response.statusCode != 201) {
-        throw data["error"] ?? "Signup failed";
+        throw _responseError(response, "Signup failed (${response.statusCode})");
       }
 
       return UserModel.fromMap(data);
@@ -72,7 +82,7 @@ class AuthRemoteRepository {
       final data = jsonDecode(response.body);
 
       if (response.statusCode != 200) {
-        throw data["error"] ?? "Login failed";
+        throw _responseError(response, "Login failed (${response.statusCode})");
       }
 
       return UserModel.fromMap(data);
@@ -161,16 +171,25 @@ class AuthRemoteRepository {
         ),
       );
 
-      final streamedResponse = await request.send();
+      final streamedResponse =
+          await request.send().timeout(const Duration(seconds: 40));
       final response = await http.Response.fromStream(streamedResponse);
 
-      final data = jsonDecode(response.body);
-
       if (response.statusCode != 200) {
-        throw data["error"] ?? "Failed to update profile picture (Error ${response.statusCode})";
+        throw _responseError(
+          response,
+          "Failed to update profile picture (${response.statusCode})",
+        );
       }
 
+      final data = jsonDecode(response.body);
       return UserModel.fromMap(data);
+    } on SocketException {
+      throw "No internet connection or server unreachable.";
+    } on TimeoutException {
+      throw "Server timed out. Please try again.";
+    } on FormatException {
+      throw "Server returned invalid response format.";
     } catch (e) {
       throw e.toString();
     }
@@ -181,20 +200,30 @@ class AuthRemoteRepository {
     required String token,
   }) async {
     try {
-      final response = await http.delete(
-        Uri.parse("${Constants.backendUri}/auth/profile-pic"),
-        headers: {
-          'x-auth-token': token,
-        },
-      );
-
-      final data = jsonDecode(response.body);
+      final response = await http
+          .delete(
+            Uri.parse("${Constants.backendUri}/auth/profile-pic"),
+            headers: {
+              'x-auth-token': token,
+            },
+          )
+          .timeout(const Duration(seconds: 40));
 
       if (response.statusCode != 200) {
-        throw data["error"] ?? "Failed to delete profile picture (Error ${response.statusCode})";
+        throw _responseError(
+          response,
+          "Failed to delete profile picture (${response.statusCode})",
+        );
       }
 
+      final data = jsonDecode(response.body);
       return UserModel.fromMap(data);
+    } on SocketException {
+      throw "No internet connection or server unreachable.";
+    } on TimeoutException {
+      throw "Server timed out. Please try again.";
+    } on FormatException {
+      throw "Server returned invalid response format.";
     } catch (e) {
       throw e.toString();
     }
