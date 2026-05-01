@@ -2,10 +2,11 @@ plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
+    id "com.google.gms.google-services"
 }
 
 android {
-    namespace = "com.example.frontend"
+    namespace = "com.asrvtech.mytask"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -20,7 +21,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.frontend"
+        applicationId = "com.asrvtech.mytask"
         minSdkVersion = flutter.minSdkVersion
         targetSdk = 36
         versionCode = flutter.versionCode

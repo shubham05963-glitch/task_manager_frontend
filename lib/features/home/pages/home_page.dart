@@ -136,16 +136,6 @@ class _HomeContentState extends State<HomeContent> {
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
         actions: [
-          IconButton(
-            tooltip: "Test Notification",
-            icon: const Icon(Icons.notifications_active),
-            onPressed: () async {
-              await NotificationService().showInstantNotification(
-                "Test Notification",
-                "If you see this in system tray, notifications are working.",
-              );
-            },
-          ),
           BlocBuilder<ThemeCubit, ThemeMode>(
             builder: (context, themeMode) {
               final isDark = themeMode == ThemeMode.dark;

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend/features/auth/cubit/auth_cubit.dart';
@@ -13,23 +12,32 @@ class SplashPage extends StatefulWidget {
 }
 
 class _SplashPageState extends State<SplashPage> {
+  bool _navigated = false;
+
   @override
   void initState() {
     super.initState();
-    _startSplashTimer();
-  }
-
-  void _startSplashTimer() {
-    Timer(const Duration(seconds: 5), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _navigateToNext();
+
+      final authCubit = context.read<AuthCubit>();
+      final currentState = authCubit.state;
+
+      // If state is already resolved, navigate immediately.
+      if (currentState is AuthLoggedIn || currentState is AuthError) {
+        _navigateToNext(currentState);
+        return;
+      }
+
+      authCubit.getUserData();
     });
   }
 
-  void _navigateToNext() {
-    final authState = context.read<AuthCubit>().state;
+  void _navigateToNext(AuthState authState) {
+    if (!mounted || _navigated) return;
+    _navigated = true;
 
-    if (authState is AuthLoggedIn) {
+    if (authState is AuthLoggedIn || (authState is AuthError && authState.user != null)) {
       Navigator.pushReplacement(
         context,
         HomePage.route(),
@@ -44,39 +52,45 @@ class _SplashPageState extends State<SplashPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        width: double.infinity,
-        color: const Color(0xff000000),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Spacer(),
-            Image.asset(
-              "assets/icon/logo.png",
-              width: 140,
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              "MyTask",
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+    return BlocListener<AuthCubit, AuthState>(
+      listener: (context, state) {
+        if (state is AuthLoading) return;
+        _navigateToNext(state);
+      },
+      child: Scaffold(
+        body: Container(
+          width: double.infinity,
+          color: const Color(0xff000000),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Spacer(),
+              Image.asset(
+                'assets/icon/logo.png',
+                width: 140,
               ),
-            ),
-            const Spacer(),
-            const Padding(
-              padding: EdgeInsets.only(bottom: 40),
-              child: Text(
-                "Build with ❤️ by Anibesh & Shubham",
+              const SizedBox(height: 20),
+              const Text(
+                'MyTask',
                 style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
               ),
-            ),
-          ],
+              const Spacer(),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 40),
+                child: Text(
+                  'Build with love by Anibesh & Shubham',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

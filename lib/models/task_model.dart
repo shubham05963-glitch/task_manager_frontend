@@ -78,7 +78,7 @@ class TaskModel {
 
   Map<String, dynamic> toBackendMap() {
     final bool status = isCompleted == 1;
-    final String? completedAtStr = completedAt?.toIso8601String();
+    final String? completedAtStr = completedAt?.toUtc().toIso8601String();
     
     return {
       'id': id,
@@ -86,24 +86,34 @@ class TaskModel {
       'description': description,
       'hexColor': rgbToHex(color),
       'hex_color': rgbToHex(color),
-      'dueAt': dueAt.toIso8601String(),
-      'due_at': dueAt.toIso8601String(),
+      'dueAt': dueAt.toUtc().toIso8601String(),
+      'due_at': dueAt.toUtc().toIso8601String(),
       'isCompleted': status,
       'is_completed': status,
       'completedAt': completedAtStr,
       'completed_at': completedAtStr,
-      'createdAt': createdAt.toIso8601String(),
-      'created_at': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
+      'createdAt': createdAt.toUtc().toIso8601String(),
+      'created_at': createdAt.toUtc().toIso8601String(),
+      'updatedAt': updatedAt.toUtc().toIso8601String(),
+      'updated_at': updatedAt.toUtc().toIso8601String(),
     };
   }
 
-  factory TaskModel.fromMap(Map<String, dynamic> map) {
+  factory TaskModel.fromMap(dynamic raw) {
+    final map = (raw is Map<String, dynamic>)
+        ? raw
+        : (raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{});
+
     DateTime parseDate(dynamic value) {
       if (value == null) return DateTime.now();
-      String dateStr = value.toString();
-      return DateTime.parse(dateStr);
+      final dateStr = value.toString().trim();
+
+      try {
+        final parsed = DateTime.parse(dateStr);
+        return parsed.isUtc ? parsed.toLocal() : parsed;
+      } catch (_) {
+        return DateTime.now();
+      }
     }
 
     int parseBoolToInt(dynamic value) {

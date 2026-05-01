@@ -1,43 +1,69 @@
+import 'dart:async';
+
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:frontend/core/services/fcm_service.dart';
 import 'package:frontend/core/services/notification_service.dart';
 import 'package:frontend/core/theme/theme_cubit.dart';
 import 'package:frontend/features/auth/cubit/auth_cubit.dart';
 import 'package:frontend/features/home/cubit/tasks_cubit.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/splash/splash_screen.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await NotificationService().init();
-  
-  runApp(
-    MultiBlocProvider(
-      providers: [
-        BlocProvider(create: (_) => AuthCubit()),
-        BlocProvider(create: (_) => TasksCubit()),
-        BlocProvider(create: (_) => ThemeCubit()),
-      ],
-      child: const MyApp(),
-    ),
-  );
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint("FlutterError: ${details.exceptionAsString()}");
+  };
+
+  runZonedGuarded(() {
+    runApp(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider(create: (_) => AuthCubit()),
+          BlocProvider(create: (_) => TasksCubit()),
+          BlocProvider(create: (_) => ThemeCubit()),
+        ],
+        child: const MyApp(),
+      ),
+    );
+  }, (error, stack) {
+    debugPrint("Uncaught zone error: $error");
+    debugPrintStack(stackTrace: stack);
+  });
+
+  // Keep heavy startup services off the critical render path.
+  unawaited(_bootstrapServices());
 }
 
-class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+Future<void> _bootstrapServices() async {
+  try {
+    await Firebase.initializeApp();
+    await NotificationService().init();
+    await FcmService.instance.init();
 
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
+    final prefs = await SharedPreferences.getInstance();
+    const welcomeShownKey = 'welcome_notification_shown';
+    final welcomeShown = prefs.getBool(welcomeShownKey) ?? false;
 
-class _MyAppState extends State<MyApp> {
-  @override
-  void initState() {
-    super.initState();
-
-    context.read<AuthCubit>().getUserData();
+    if (!welcomeShown) {
+      await NotificationService().showInstantNotification(
+        "Welcome",
+        "Welcome to MyTask app",
+      );
+      await prefs.setBool(welcomeShownKey, true);
+    }
+  } catch (e, st) {
+    debugPrint("Startup services init error: $e");
+    debugPrintStack(stackTrace: st);
   }
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {

@@ -20,13 +20,6 @@ class NotificationService {
   static const String _channelId = 'task_priority_channel_v3';
   static const String _channelName = 'Task Reminders';
 
-  String _normalizeTimeZone(String timeZoneName) {
-    final trimmed = timeZoneName.trim();
-    // Android devices may still report legacy names.
-    if (trimmed == "Asia/Calcutta") return "Asia/Kolkata";
-    return trimmed;
-  }
-
   Future<void> init() async {
     if (_isInitialized) return;
 
@@ -36,7 +29,8 @@ class NotificationService {
       // 1. Initialize Timezones
       tz_data.initializeTimeZones();
       final String rawTimeZoneName = await FlutterTimezone.getLocalTimezone();
-      final String timeZoneName = _normalizeTimeZone(rawTimeZoneName);
+      // Force all task reminder scheduling to Indian Standard Time.
+      const String timeZoneName = "Asia/Kolkata";
       try {
         tz.setLocalLocation(tz.getLocation(timeZoneName));
       } catch (_) {
@@ -153,7 +147,7 @@ class NotificationService {
       final after1h = dueAt.add(const Duration(hours: 1));
 
       // 1) 12 hours before deadline
-      if (before12h.isAfter(now.add(const Duration(seconds: 5)))) {
+      if (before12h.isAfter(now)) {
         await _scheduleNotification(
           id: _getNotificationId(task.id, 90),
           title: 'Task Reminder',
@@ -163,18 +157,25 @@ class NotificationService {
       }
 
       // 2) Exactly at deadline
-      if (dueAt.isAfter(now.add(const Duration(seconds: 5)))) {
+      if (dueAt.isAfter(now)) {
         await _scheduleNotification(
           id: _getNotificationId(task.id, 100),
           title: 'Task Due Now!',
           body: 'Your task "${task.title}" is due now.',
           scheduledDate: dueAt,
         );
+      } else if (now.difference(dueAt) <= const Duration(minutes: 2)) {
+        // Catch-up path: if app sync happens slightly after deadline,
+        // still notify immediately so due alert is not missed.
+        await showInstantNotification(
+          'Task Due Now!',
+          'Your task "${task.title}" is due now.',
+        );
       }
 
       // 3) 1 hour after deadline (for still-incomplete tasks)
       // Completion flow cancels this reminder when task is marked complete.
-      if (after1h.isAfter(now.add(const Duration(seconds: 5)))) {
+      if (after1h.isAfter(now)) {
         await _scheduleNotification(
           id: _getNotificationId(task.id, 110),
           title: 'Task Pending',

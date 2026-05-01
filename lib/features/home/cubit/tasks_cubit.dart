@@ -102,10 +102,10 @@ class TasksCubit extends Cubit<TasksState> {
       // 4) merge remote into local store
       await taskLocalRepository.insertTasks(remoteTasks);
 
-      // 5) final read and schedule notifications.
-      // Do not cancel all here; global cancel can drop reminders that are
-      // about to fire while app is open. scheduleTaskNotifications already
-      // cancels/replaces reminders per task id safely.
+      // 5) final read and rebuild reminder schedule from current task state.
+      // This clears stale alarms from older app versions/timezone handling.
+      await notificationService.cancelAllNotifications();
+
       final updatedTasks = await taskLocalRepository.getTasks(uid);
       for (final task in updatedTasks) {
         await notificationService.scheduleTaskNotifications(task);

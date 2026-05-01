@@ -44,7 +44,7 @@ class TaskRemoteRepository {
               'title': title,
               'description': description,
               'hexColor': hexColor,
-              'dueAt': dueAt.toIso8601String(),
+              'dueAt': dueAt.toUtc().toIso8601String(),
             }),
           )
           .timeout(const Duration(seconds: 40));

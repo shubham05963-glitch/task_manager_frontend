@@ -51,15 +51,28 @@ class UserModel {
     };
   }
 
-  factory UserModel.fromMap(Map<String, dynamic> map) {
+  factory UserModel.fromMap(dynamic raw) {
+    final map = (raw is Map<String, dynamic>)
+        ? raw
+        : (raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{});
+
+    DateTime safeDate(dynamic value) {
+      if (value == null) return DateTime.now();
+      try {
+        return DateTime.parse(value.toString());
+      } catch (_) {
+        return DateTime.now();
+      }
+    }
+
     return UserModel(
       id: map['id'] ?? map['_id'] ?? '',
       email: map['email'] ?? '',
       name: map['name'] ?? '',
       token: map['token'] ?? '',
       profilePic: map['profilePic'] ?? '',
-      createdAt: DateTime.parse(map['createdAt'] ?? map['created_at'] ?? DateTime.now().toIso8601String()),
-      updatedAt: DateTime.parse(map['updatedAt'] ?? map['updated_at'] ?? DateTime.now().toIso8601String()),
+      createdAt: safeDate(map['createdAt'] ?? map['created_at']),
+      updatedAt: safeDate(map['updatedAt'] ?? map['updated_at']),
     );
   }
 
