@@ -11,6 +11,17 @@ final class AuthLoading extends AuthState {
 
 final class AuthSignUp extends AuthState {}
 
+final class AuthOtpSent extends AuthState {
+  final String email;
+  final bool isResetPassword;
+  AuthOtpSent({required this.email, this.isResetPassword = false});
+}
+
+final class AuthActionSuccess extends AuthState {
+  final String message;
+  AuthActionSuccess(this.message);
+}
+
 final class AuthLoggedIn extends AuthState {
   final UserModel user;
   AuthLoggedIn(this.user);

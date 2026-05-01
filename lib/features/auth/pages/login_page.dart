@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend/features/auth/cubit/auth_cubit.dart';
+import 'package:frontend/features/auth/pages/email_verification_page.dart';
+import 'package:frontend/features/auth/pages/reset_password_page.dart';
 import 'package:frontend/features/auth/pages/signup_page.dart';
 import 'package:frontend/features/home/pages/home_page.dart';
 
@@ -20,6 +22,7 @@ class _LoginPageState extends State<LoginPage> {
   final formKey = GlobalKey<FormState>();
 
   bool isPasswordVisible = false;
+  bool forgotLoading = false;
 
   @override
   void dispose() {
@@ -35,6 +38,43 @@ class _LoginPageState extends State<LoginPage> {
             password: passwordController.text.trim(),
           );
     }
+  }
+
+  void openForgotPasswordDialog() {
+    final forgotEmailController = TextEditingController(text: emailController.text.trim());
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Forgot Password"),
+        content: TextField(
+          controller: forgotEmailController,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(hintText: "Enter your email"),
+        ),
+        actions: [
+          TextButton(
+            onPressed: forgotLoading ? null : () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: forgotLoading
+                ? null
+                : () {
+                    final email = forgotEmailController.text.trim();
+                    if (email.isEmpty || !email.contains("@")) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Enter a valid email")),
+                      );
+                      return;
+                    }
+                    Navigator.pop(context);
+                    context.read<AuthCubit>().forgotPassword(email: email);
+                  },
+            child: const Text("Send OTP"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -58,8 +98,22 @@ class _LoginPageState extends State<LoginPage> {
                 (_) => false,
               );
             }
+            if (state is AuthOtpSent && state.isResetPassword) {
+              Navigator.push(context, ResetPasswordPage.route(state.email));
+            }
+            if (state is AuthOtpSent && !state.isResetPassword) {
+              Navigator.push(context, EmailVerificationPage.route(state.email));
+            }
+            if (state is AuthError &&
+                state.error.toLowerCase().contains("not verified") &&
+                emailController.text.trim().contains("@")) {
+              context
+                  .read<AuthCubit>()
+                  .resendVerificationOtp(email: emailController.text.trim());
+            }
           },
           builder: (context, state) {
+            forgotLoading = state is AuthLoading;
             return SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: SizedBox(
@@ -154,6 +208,13 @@ class _LoginPageState extends State<LoginPage> {
                                   "LOGIN",
                                   style: TextStyle(fontSize: 16),
                                 ),
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: state is AuthLoading ? null : openForgotPasswordDialog,
+                          child: const Text("Forgot Password?"),
                         ),
                       ),
 

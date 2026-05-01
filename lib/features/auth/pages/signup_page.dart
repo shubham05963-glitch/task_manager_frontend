@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/features/auth/cubit/auth_cubit.dart';
+import 'package:frontend/features/auth/pages/email_verification_page.dart';
 import 'package:frontend/features/auth/pages/login_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -53,17 +54,8 @@ class _SignupPageState extends State<SignupPage> {
               );
             }
 
-            if (state is AuthSignUp) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("Account created! Please login."),
-                ),
-              );
-
-              Navigator.pushReplacement(
-                context,
-                LoginPage.route(),
-              );
+            if (state is AuthOtpSent && !state.isResetPassword) {
+              Navigator.pushReplacement(context, EmailVerificationPage.route(state.email));
             }
           },
           builder: (context, state) {

@@ -24,7 +24,7 @@ class AuthRemoteRepository {
   }
 
   /// SIGN UP
-  Future<UserModel> signUp({
+  Future<String> signUp({
     required String name,
     required String email,
     required String password,
@@ -44,13 +44,107 @@ class AuthRemoteRepository {
       )
           .timeout(const Duration(seconds: 40));
 
-      final data = jsonDecode(response.body);
-
       if (response.statusCode != 201) {
         throw _responseError(response, "Signup failed (${response.statusCode})");
       }
 
-      return UserModel.fromMap(data);
+      final data = jsonDecode(response.body);
+      return (data["email"] ?? email).toString();
+    } on SocketException {
+      throw "No internet connection or server unreachable.";
+    } on TimeoutException {
+      throw "Server timed out. Please try again.";
+    } catch (e) {
+      throw e.toString();
+    }
+  }
+
+  Future<void> verifyEmailOtp({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      final response = await http
+          .post(
+        Uri.parse("${Constants.backendUri}/auth/verify-email"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"email": email, "otp": otp}),
+      )
+          .timeout(const Duration(seconds: 40));
+      if (response.statusCode != 200) {
+        throw _responseError(response, "OTP verification failed");
+      }
+    } on SocketException {
+      throw "No internet connection or server unreachable.";
+    } on TimeoutException {
+      throw "Server timed out. Please try again.";
+    } catch (e) {
+      throw e.toString();
+    }
+  }
+
+  Future<void> resendVerificationOtp({
+    required String email,
+  }) async {
+    try {
+      final response = await http
+          .post(
+        Uri.parse("${Constants.backendUri}/auth/resend-verification-otp"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"email": email}),
+      )
+          .timeout(const Duration(seconds: 40));
+      if (response.statusCode != 200) {
+        throw _responseError(response, "Failed to resend verification OTP");
+      }
+    } on SocketException {
+      throw "No internet connection or server unreachable.";
+    } on TimeoutException {
+      throw "Server timed out. Please try again.";
+    } catch (e) {
+      throw e.toString();
+    }
+  }
+
+  Future<void> forgotPassword({required String email}) async {
+    try {
+      final response = await http
+          .post(
+        Uri.parse("${Constants.backendUri}/auth/forgot-password"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"email": email}),
+      )
+          .timeout(const Duration(seconds: 40));
+      if (response.statusCode != 200) {
+        throw _responseError(response, "Failed to send reset OTP");
+      }
+    } on SocketException {
+      throw "No internet connection or server unreachable.";
+    } on TimeoutException {
+      throw "Server timed out. Please try again.";
+    } catch (e) {
+      throw e.toString();
+    }
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await http
+          .post(
+        Uri.parse("${Constants.backendUri}/auth/reset-password"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(
+          {"email": email, "otp": otp, "newPassword": newPassword},
+        ),
+      )
+          .timeout(const Duration(seconds: 40));
+      if (response.statusCode != 200) {
+        throw _responseError(response, "Failed to reset password");
+      }
     } on SocketException {
       throw "No internet connection or server unreachable.";
     } on TimeoutException {

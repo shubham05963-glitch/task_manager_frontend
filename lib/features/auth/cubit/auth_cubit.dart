@@ -57,13 +57,68 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       emit(AuthLoading());
 
-      await authRemoteRepository.signUp(
+      final verifiedEmail = await authRemoteRepository.signUp(
         name: name,
         email: email,
         password: password,
       );
 
-      emit(AuthSignUp());
+      emit(AuthOtpSent(email: verifiedEmail));
+    } catch (e) {
+      emit(AuthError(e.toString()));
+    }
+  }
+
+  Future<void> verifyEmailOtp({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      emit(AuthLoading());
+      await authRemoteRepository.verifyEmailOtp(email: email, otp: otp);
+      emit(AuthActionSuccess("Email verified successfully. Please login."));
+    } catch (e) {
+      emit(AuthError(e.toString()));
+    }
+  }
+
+  Future<void> resendVerificationOtp({
+    required String email,
+  }) async {
+    try {
+      emit(AuthLoading());
+      await authRemoteRepository.resendVerificationOtp(email: email);
+      emit(AuthOtpSent(email: email));
+    } catch (e) {
+      emit(AuthError(e.toString()));
+    }
+  }
+
+  Future<void> forgotPassword({
+    required String email,
+  }) async {
+    try {
+      emit(AuthLoading());
+      await authRemoteRepository.forgotPassword(email: email);
+      emit(AuthOtpSent(email: email, isResetPassword: true));
+    } catch (e) {
+      emit(AuthError(e.toString()));
+    }
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    try {
+      emit(AuthLoading());
+      await authRemoteRepository.resetPassword(
+        email: email,
+        otp: otp,
+        newPassword: newPassword,
+      );
+      emit(AuthActionSuccess("Password reset successful. Please login."));
     } catch (e) {
       emit(AuthError(e.toString()));
     }
